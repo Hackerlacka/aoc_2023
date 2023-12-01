@@ -1,6 +1,8 @@
+mod task1;
+mod task2;
+mod utils;
+
 fn main() {
-    println!("Hello, world!");
-
-
-    aoc_helper::add(2, 2);
+    task1::run_task();
+    task2::run_task();
 }
