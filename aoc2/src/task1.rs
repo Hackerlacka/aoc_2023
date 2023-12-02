@@ -8,9 +8,15 @@ mod tests {
     fn test_task_2_example_input() {
         let games = Game::parse_games("../input/2_1_example_input.txt");
 
-        assert_eq!(games.len(), 5);
+        // For printing
+        // for game in games.iter() {
+        //     println!("{:?}", game);
+        // }
 
-        let possible_games = Game::find_possible_games(GameSet{ red: 12, green: 13, blue: 14 }, &games);
+        assert_eq!(games.len(), 5);
+        
+        let bag = GameSet{ red: 12, green: 13, blue: 14 };
+        let possible_games = Game::find_possible_games(&bag, &games);
         
         assert_eq!(possible_games.len(), 3);
 
@@ -26,8 +32,9 @@ mod tests {
 
 pub fn run_task() {
     let games = Game::parse_games("input/2_1_input.txt");
+    let bag = GameSet{ red: 12, green: 13, blue: 14 };
 
-    let possible_games = Game::find_possible_games(GameSet{ red: 12, green: 13, blue: 14 }, &games);
+    let possible_games = Game::find_possible_games(&bag, &games);
 
     let possible_game_ids: Vec<u32> = possible_games.iter().map(|g| g.id).collect();
 

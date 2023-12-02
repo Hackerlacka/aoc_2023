@@ -1,12 +1,14 @@
 use std::fs::read_to_string;
 use regex::Regex;
 
+#[derive(Debug)]
 pub struct GameSet {
     pub red: u32,
     pub green: u32,
     pub blue: u32
 }
 
+#[derive(Debug)]
 pub struct Game {
     pub id: u32,
     sets: Vec<GameSet>
@@ -17,7 +19,7 @@ impl GameSet {
         GameSet { red: 0, green: 0, blue: 0 }
     }
 
-    pub fn parse_game_set(line: &str) -> GameSet {
+    pub fn parse(line: &str) -> GameSet {
         let mut game_set = GameSet::empty_set();
     
         // Separate colors 
@@ -31,7 +33,7 @@ impl GameSet {
             }
     
             let count: u32 = color_split[0].parse().unwrap();
-    
+            
             match color_split[1] {
                 "red" => game_set.red = count,
                 "green" => game_set.green = count,
@@ -74,7 +76,7 @@ impl Game {
         for (_, [game_sets_line]) in re.captures_iter(line).map(|c| c.extract()) {
            let game_sets_split: Vec<&str> = game_sets_line.split(";").collect();
     
-           return game_sets_split.iter().map(|line| GameSet::parse_game_set(line)).collect();
+           return game_sets_split.iter().map(|line| GameSet::parse(line)).collect();
         }
     
         panic!();
@@ -113,7 +115,8 @@ impl Game {
         return bag.red >= max_bag.red && bag.green >= max_bag.green && bag.blue >= max_bag.blue; 
     }
     
-    pub fn find_possible_games(bag: GameSet, games: &Vec<Game>) -> Vec<&Game> {
-       return games.iter().filter(|g| g.is_possible(&bag)).collect();
+    // TODO: Review lifetimes
+    pub fn find_possible_games<'a>(bag: &'a GameSet, games: &'a Vec<Game>) -> Vec<&'a Game> {
+       return games.iter().filter(|g: &&Game| g.is_possible(bag)).collect();
     }
 }
