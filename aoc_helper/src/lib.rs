@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::time::Instant;
 use std::fs::read_to_string;
 
@@ -12,6 +13,11 @@ pub fn benchmark(fun: fn() -> ()) {
 
 /// Get all lines in a file
 pub fn read_lines(file: &str) -> Vec<String> {
+    read_to_string(file).unwrap().lines().map(String::from).collect()
+}
+
+/// Get all lines in a file (as double ended queue)
+pub fn read_lines_deque(file: &str) -> VecDeque<String> {
     read_to_string(file).unwrap().lines().map(String::from).collect()
 }
 
