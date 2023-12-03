@@ -1,4 +1,5 @@
 use std::time::Instant;
+use std::fs::read_to_string;
 
 /// Benchmark a function
 /// 
@@ -7,6 +8,11 @@ pub fn benchmark(fun: fn() -> ()) {
     let before = Instant::now();
     fun();
     println!("Elapsed time: {:.2?}", before.elapsed());
+}
+
+/// Get all lines in a file
+pub fn read_lines(file: &str) -> Vec<String> {
+    read_to_string(file).unwrap().lines().map(String::from).collect()
 }
 
 // TODO: Remove?
