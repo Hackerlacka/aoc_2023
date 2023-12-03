@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 pub struct UnconfirmedPart {
     number_str: String,
     y: isize,
-    start: isize, // Alternative: try_into().unwrap() for convert usize to isize?
+    start: isize,
     end: isize,
 }
 
@@ -146,10 +146,6 @@ impl EnginePart {
 
                             engine_parts.push(engine_part);
                         }
-                    }
-
-                    // TODO: Remove?? What is this
-                    if unconf_part.is_some() {
                     }
 
                     unconf_part = None;

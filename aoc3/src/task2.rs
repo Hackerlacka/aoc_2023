@@ -20,7 +20,6 @@ mod tests {
             sum += part_1.gear_ratio(part_2);
         }
         
-        /* TODO: risk for overflow with u32?? */
         assert_eq!(sum, 467835);
     }
 }
