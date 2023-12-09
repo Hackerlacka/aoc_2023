@@ -9,5 +9,6 @@ members = [
     "aoc5",
     "aoc6",
     "aoc7",
-    "aoc8"
+    "aoc8",
+    "aoc9"
 ]
