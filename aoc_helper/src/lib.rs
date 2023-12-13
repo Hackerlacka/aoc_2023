@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::time::Instant;
 use std::fs::read_to_string;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 /// Benchmark a function
 /// 
@@ -24,6 +26,13 @@ pub fn read_lines_deque(file: &str) -> VecDeque<String> {
 // TODO: Remove?
 pub fn get_input_path(day: u32, task: u32, example: bool) -> String {
     return format!("input/{}_{}_{}input.txt", day, task, if example {"example_"} else {""})
+}
+
+/// Hash an object
+pub fn hash<H: Hash>(object: H) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    object.hash(&mut hasher);
+    hasher.finish()
 }
 
 
