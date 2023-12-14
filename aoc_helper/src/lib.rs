@@ -35,6 +35,12 @@ pub fn hash<H: Hash>(object: H) -> u64 {
     hasher.finish()
 }
 
+pub fn hash_ref<H: Hash>(object: &H) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    object.hash(&mut hasher);
+    hasher.finish()
+}
+
 
 // TODO: Remove
 // pub fn add(left: usize, right: usize) -> usize {
