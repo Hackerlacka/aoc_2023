@@ -17,6 +17,16 @@ mod tests {
         let sum = arrangements.iter().sum::<usize>();
         assert_eq!(sum, 21);
     }
+    
+    #[test]
+    fn test_input_filtered_3() {
+        let spring_map = SpringMap::parse("../input/12_1_input_filtered_3.txt");
+
+        let arrangements = spring_map.calculate_arrangements();
+        
+        let sum = arrangements.iter().sum::<usize>();
+        assert_eq!(sum, 49762);
+    }
 }
 
 pub fn run_task() {

@@ -1,7 +1,9 @@
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 use chrono;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Spring {
     row: Vec<char>,
     group_sizes: Vec<usize>
@@ -9,6 +11,13 @@ struct Spring {
 
 pub struct SpringMap {
     springs: Vec<Spring>
+}
+
+pub struct MtContext {
+    arrangements: HashMap<usize, usize>,
+    springs: Vec<Spring>,
+    in_progress: Vec<usize>,
+    i: usize
 }
 
 impl Spring {
@@ -57,60 +66,146 @@ impl Spring {
         return true;
     }
 
-    fn calculate_arrangements_rec(orig_row: &Vec<char>, row: &mut Vec<char>, row_len: usize, start_i: usize, queue: &mut VecDeque<usize>) -> usize {
+    // fn calculate_arrangements_rec(orig_row: &Vec<char>, row: &mut Vec<char>, row_len: usize, start_i: usize, queue: &mut VecDeque<usize>) -> usize {
+    //     let mut arrangements = 0;
+        
+    //     let group_size = queue.pop_front().unwrap();
+    //     let group_sum_plus_dots = queue.iter().sum::<usize>() + group_size + queue.len();
+
+    //     for i in start_i..row_len {
+    //         // Check if there are not enough chars left
+    //         let remaining_chars = row_len - i;
+    //         if remaining_chars < group_sum_plus_dots {
+    //             break;
+    //         }
+
+    //         // Check if all of the coming group_size chars are not '.' (i.e. they are # or ?)
+    //         // TODO: Potential optimization by jumping i past any found dot
+    //         let enough_group_chars: bool = row[i..(i + group_size)].iter().all(|c| *c != '.');
+    //         if enough_group_chars {
+    //             // True if there are no more chars after this group
+    //             let no_chars_after_group = remaining_chars == group_size;
+    //             // Verify that this "char next to group" is ? or . or does not exist
+    //             if (!no_chars_after_group && row[i + group_size] != '#') || no_chars_after_group {
+    //                 // Add group (for debug purposes)
+    //                 for j in 0..group_size {
+    //                     row[i + j] = '#';
+    //                 }
+
+    //                 // .??#?.#?#?#?
+                    
+    //                 // .#?#?.#?#?#?
+    //                 // .#?#?.#???#?
+    //                 // .??#?.#?#?#?
+
+    //                 if queue.is_empty() && !no_chars_after_group && orig_row[(i + group_size)..].iter().any(|c| *c == '#') {
+    //                     // "continue"
+    //                 } else if queue.is_empty() { // Valid combination
+    //                     arrangements += 1;
+
+    //                     // TODO: for debugging
+    //                     Self::print_row(row);
+    //                 } else {
+    //                     let new_start_i = i + group_size + 1; // + 1 to make space for . between groups
+    //                     arrangements += Self::calculate_arrangements_rec(orig_row, row, row_len, new_start_i, queue);
+    //                 }
+
+    //                 // Remove group (for debug purposes)
+    //                 for j in 0..group_size {
+    //                     row[i + j] = orig_row[i + j];
+    //                 }
+    //             }
+    //         }
+
+    //         // Not allowed to leave a hashtag behind
+    //         let next_iter_move_past_hashtag = row[i] == '#';
+    //         if next_iter_move_past_hashtag {
+    //             break;
+    //         }
+    //     }
+
+    //     queue.push_front(group_size);
+
+    //     return arrangements;
+    // }
+
+    // fn calculate_arrangements_smart(&self) -> usize {
+    //     let mut queue = VecDeque::new();
+    //     self.group_sizes.iter().for_each(|group_size| queue.push_back(*group_size));
+
+    //     return Self::calculate_arrangements_rec(&self.row, &mut self.row.clone(), self.row.len(), 0, &mut queue);
+    // }
+
+    fn calculate_arrangements_rec(orig_row: &Vec<char>, row: &mut Vec<char>, row_len: usize, start_i: usize, queue: &mut VecDeque<usize>) -> Vec<(usize, usize)> {      
         let group_size = queue.pop_front().unwrap();
-        let mut sum = 0; // Arrangements
+        let group_sum_plus_dots = queue.iter().sum::<usize>() + group_size + queue.len();
 
-        // TODO: calc queue.sum() + group_size
-        // TODO: calc chars left
-        let mut group_sum: usize = queue.iter().sum();
-        group_sum += group_size;
-
-        let mut chars_left = row_len - start_i;
-
+        let mut res: Vec<(usize, usize)> = Vec::new();
+        let mut res_received: Option<Vec<(usize, usize)>> = None;
         for i in start_i..row_len {
-
-            // TODO if sum > chars left
-            if group_sum > chars_left {
-                break;
-            }
-            // Decrease chars left
-            chars_left -= 1;
-
-            // Cannot continue if there are not enough chars left for the group
+            // Check if there are not enough chars left
             let remaining_chars = row_len - i;
-            if remaining_chars < group_size {
+            if remaining_chars < group_sum_plus_dots {
                 break;
             }
 
-            // If all are group chars (# or ?) it is ok to continue
-            // TODO: Optimize with express as 
-            //let is_group_chars = row[i..(i + group_size)].iter().all(|c| *c == '#' || *c == '?');
-            let is_group_chars = !row[i..(i + group_size)].iter().any(|c| *c == '.');
-
-            if is_group_chars {
+            // Check if all of the coming group_size chars are not '.' (i.e. they are # or ?)
+            // TODO: Potential optimization by jumping i past any found dot
+            let enough_group_chars: bool = row[i..(i + group_size)].iter().all(|c| *c != '.');
+            if enough_group_chars {
                 // True if there are no more chars after this group
-                let is_last_chars = remaining_chars == group_size;
-
+                let no_chars_after_group = remaining_chars == group_size;
                 // Verify that this "char next to group" is ? or . or does not exist
-                // TODO: Optimize with row[i + group_size] != '#'
-                //if (remaining_chars >= group_size + 1 && (row[i + group_size] == '?' || row[i + group_size] == '.')) || is_last_chars {
-                if (!is_last_chars && row[i + group_size] != '#') || is_last_chars {
-                    // Add group (TODO: NOT actually needed)
+                if (!no_chars_after_group && row[i + group_size] != '#') || no_chars_after_group {
+                    // Add group (TODO: for debug purposes)
                     // for j in 0..group_size {
                     //     row[i + j] = '#';
                     // }
-
-                    if queue.is_empty() { // Valid combination
-                        //println!("Row {:?}", row);
-                        sum += 1;
+                    
+                    if queue.is_empty() && !no_chars_after_group && orig_row[(i + group_size)..].iter().any(|c| *c == '#') {
+                        // There shall not be any hashtags at the end when all groups are placed!
+                        // "continue"
+                    } else if queue.is_empty() { // Valid combination
+                        res.push((i, 1));
                     } else {
-                        // TODO: Could possible be out of bounds?
                         let new_start_i = i + group_size + 1; // + 1 to make space for . between groups
-                        sum += Self::calculate_arrangements_rec(orig_row, row, row_len, new_start_i, queue);
+                        
+                        // If new_start_i is past previous res_received max i, then we must recalculate this ourselves
+                        if res_received.is_none() || res_received.as_ref().unwrap().len() == 0 || new_start_i > res_received.as_ref().unwrap().iter().map(|pos| pos.0).max().unwrap() {  
+                            //println!("Rec call for start_i:{} i:{}", start_i, i);          
+                            res_received = Some(Self::calculate_arrangements_rec(orig_row, row, row_len, new_start_i, queue));
+                        }
+
+                        if res_received.is_some() {
+                            let tmp_res_received = res_received.as_ref().unwrap();
+                            let mut found_i = false;
+                            let mut arrangements = 0;
+
+                            //println!("start_i:{} i:{} : Looking for {} in {:?}", start_i, i, new_start_i, tmp_res_received);
+                            for tmp in tmp_res_received {
+                                if tmp.0 >= new_start_i {
+                                    found_i = true;
+                                }
+
+                                if found_i {
+                                    arrangements += tmp.1;
+                                }
+                            }
+
+                            // TODO: for debugging
+                            // if queue.len() == 1 {
+                            //     print!("Combinations is: {} for: ", arrangements);
+                            //     Self::print_row(row);
+                            // }
+
+                            if arrangements > 0 {
+                                //println!("Adding arrangements {}", arrangements);
+                                res.push((i, arrangements));
+                            }
+                        }
                     }
 
-                    // Remove group (TODO: NOT actually needed)
+                    // Remove group (TODO: for debug purposes)
                     // for j in 0..group_size {
                     //     row[i + j] = orig_row[i + j];
                     // }
@@ -120,21 +215,27 @@ impl Spring {
             // Not allowed to leave a hashtag behind
             let next_iter_move_past_hashtag = row[i] == '#';
             if next_iter_move_past_hashtag {
-                //println!("Moving past outer! {:?}, group_size {}, queue len {}", row, group_size, queue.len());
                 break;
             }
         }
 
         queue.push_front(group_size);
 
-        return sum;
+        return res;
     }
 
     fn calculate_arrangements_smart(&self) -> usize {
         let mut queue = VecDeque::new();
         self.group_sizes.iter().for_each(|group_size| queue.push_back(*group_size));
 
-        return Self::calculate_arrangements_rec(&self.row, &mut self.row.clone(), self.row.len(), 0, &mut queue);
+        let res = Self::calculate_arrangements_rec(&self.row, &mut self.row.clone(), self.row.len(), 0, &mut queue);
+
+        return res.into_iter().map(|tmp| tmp.1).sum();
+    }
+
+    fn print_row(row: &Vec<char>) {
+        row.iter().for_each(|c| print!("{}", c));
+        println!()
     }
 
     fn calculate_arrangements(&self) -> usize {
@@ -202,13 +303,79 @@ impl SpringMap {
         }).collect()
     }
 
+    pub fn calculate_arrangements_smart_mt(&self) -> Vec<usize> {
+        let mut cloned_springs = self.springs.clone();
+        cloned_springs.reverse();
+        let tmp_ctx = MtContext { arrangements: HashMap::new(), springs: cloned_springs, i: 0, in_progress: Vec::new() };
+        let ctx = Arc::new(Mutex::new(tmp_ctx));
+
+        let mut handles = vec![];
+
+        // 14
+        for _ in 0..1 {
+            let lctx = Arc::clone(&ctx);
+            let handle = thread::spawn(move || {
+                loop {
+                    let spring: Spring;
+                    let i: usize;
+
+                    {
+                        let mut tmp_lctx = lctx.lock().unwrap();
+
+                        if tmp_lctx.springs.is_empty() {
+                            println!("Queue empty, exiting thread");
+                            return;
+                        }
+                        
+                        spring = tmp_lctx.springs.pop().unwrap();
+                        tmp_lctx.i += 1;
+                        i = tmp_lctx.i;
+                        //tmp_lctx.in_progress.push(i);
+                    }
+
+                    let arrangements = spring.calculate_arrangements_smart();
+
+                    {
+                        let mut tmp_lctx = lctx.lock().unwrap();
+
+                        tmp_lctx.arrangements.insert(i, arrangements);
+
+                        println!("{:?}: Completed spring: {}", chrono::offset::Local::now(), i);
+
+                        // let position = tmp_lctx.in_progress.iter().position(|element| *element == i).unwrap();
+                        // tmp_lctx.in_progress.remove(position);
+
+                        // if tmp_lctx.springs.is_empty() {
+                        //     println!("In progress: {:?}", tmp_lctx.in_progress);
+                        // }
+                    }
+                }
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        // Convert HashMap result into Vec
+        let arrangements = &ctx.lock().unwrap().arrangements;
+        let mut res = Vec::new();
+        for i in 0..arrangements.len() {
+            res.push(*arrangements.get(&(i + 1)).unwrap());
+        }
+
+        return res;
+    }
+
     pub fn calculate_arrangements(&self) -> Vec<usize> {
         self.springs.iter().map(|spring| {
-            println!("Working on new spring...");
+            //println!("Working on new spring...");
             spring.calculate_arrangements()
         }).collect()
     }
 
+    // TODO: Revert
     pub fn unfold(&mut self) {
         self.springs.iter_mut().for_each(|spring| spring.unfold());
     }
