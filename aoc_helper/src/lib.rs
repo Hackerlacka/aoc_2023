@@ -13,6 +13,11 @@ pub fn benchmark(fun: fn() -> ()) {
     println!("Elapsed time: {:.2?}", before.elapsed());
 }
 
+/// Print the current time
+pub fn print_time_now() {
+    println!("{:?}", chrono::offset::Local::now());
+}
+
 /// Get all lines in a file
 pub fn read_lines(file: &str) -> Vec<String> {
     read_to_string(file).unwrap().lines().map(String::from).collect()
