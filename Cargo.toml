@@ -14,7 +14,6 @@ members = [
     "aoc10",
     "aoc11",
     "aoc12",
-    "aoc12_2",
     "aoc13",
     "aoc14",
     "aoc15",
@@ -25,5 +24,6 @@ members = [
     "aoc20",
     "aoc21",
     "aoc22",
-    "aoc23"
+    "aoc23",
+    "aoc24"
 ]
