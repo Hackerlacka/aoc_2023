@@ -64,33 +64,39 @@ impl Category {
 
 impl Comparator {
     fn compare_range(&self, category_range: (u64, u64), value: u64) -> (Option<(u64, u64)>, Option<(u64, u64)>) {
+
+        // Comparison: (u64, u64) < u64?
         if *self == Comparator::LT {
             return if value > category_range.1 {
                 (Some(category_range), None)
             } else if value == category_range.1 {
-                
+                if category_range.1 == category_range.0 {
+                    (None, Some(category_range))
+                } else {
+                    (Some((category_range.0, category_range.1 - 1)), Some((value, value)))
+                }
             } else if value < category_range.1 && value > category_range.0 {
-    
-            } else if value == category_range.0 {
-    
-            } else if value < category_range.0 {
+                (Some((category_range.0, value - 1)), Some((value, category_range.1)))
+            } else if value <= category_range.0 {
                 (None, Some(category_range))
             } else {
-                panic!("Failed compare_range");
+                panic!("Failed compare_range LT");
             }
-        } else {
-            if value < category_range.0 {
-            
+        } else { // Comparison: (u64, u64) > u64?
+            return if value < category_range.0 {
+                (Some(category_range), None)
             } else if value == category_range.0 {
-    
+                if category_range.0 == category_range.1 {
+                    (None, Some(category_range))
+                } else {
+                    (Some((category_range.0 + 1, category_range.1)), Some((value, value)))
+                }
             } else if value < category_range.1 && value > category_range.0 {
-    
-            } else if value == category_range.1 {
-    
-            } else if value > category_range.1 {
-    
+                (Some((value + 1, category_range.1)), Some((category_range.0, value)))
+            } else if value >= category_range.1 {
+                (None, Some(category_range))
             } else {
-                panic!("Failed compare_range");
+                panic!("Failed compare_range GT");
             }
         }
         
@@ -113,6 +119,15 @@ impl Comparator {
 }
 
 impl MachinePartRange {
+    fn set_category_range(&mut self, category: &Category, range: (u64, u64)) {
+        match category {
+            Category::X => self.x = range,
+            Category::M => self.m = range,
+            Category::A => self.a = range,
+            Category::S => self.s = range
+        };
+    }
+
     fn get_category_range(&self, category: &Category) -> (u64, u64) {
         return match category {
             Category::X => self.x,
@@ -159,9 +174,24 @@ impl MachinePart {
 
 impl RuleCondition {
     fn check_condition_range(&self, range: &MachinePartRange) -> (Option<MachinePartRange>, Option<MachinePartRange>) {
-        let catergory_range = range.get_category_range(&self.category);
+        let category_range = range.get_category_range(&self.category);
+        let (left, right) = self.comparator.compare_range(category_range, self.value);
 
-        
+        let mut left_machine_range = None;
+        if left.is_some() {
+            let mut clone = range.clone();
+            clone.set_category_range(&self.category, left.unwrap());
+            left_machine_range = Some(clone);
+        }
+
+        let mut right_machine_range = None;
+        if right.is_some() {
+            let mut clone = range.clone();
+            clone.set_category_range(&self.category, right.unwrap());
+            right_machine_range = Some(clone);
+        }
+
+        return (left_machine_range, right_machine_range);
     }
     
     fn check_condition(&self, part: &MachinePart) -> bool {
@@ -183,10 +213,17 @@ impl RuleCondition {
 impl Rule {
     fn test_range(&self, range: &MachinePartRange) -> (Option<(MachinePartRange, String)>, Option<MachinePartRange>) {
         if self.condition.is_none() {
-            return Some(((range.clone(), self.destination.clone()), None));
+            return (Some((range.clone(), self.destination.clone())), None);
         }
 
-        // TODO: Pass to RuleCondition
+        // Left part goes to destination, right part goes to next rule
+        let (left, right) = self.condition.as_ref().unwrap().check_condition_range(range);
+        let mut left_out: Option<(MachinePartRange, String)> = None;
+        if left.is_some() {
+            left_out = Some((left.unwrap(), self.destination.clone()));
+        }
+        
+        return (left_out, right);
     }
 
     fn test_part<'a>(&self, part: &'a MachinePart) -> Option<(&'a MachinePart, String)> {

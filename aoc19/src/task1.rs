@@ -1,4 +1,4 @@
-use crate::utils::{ElfSystem, MachinePart};
+use crate::utils::ElfSystem;
 
 #[cfg(test)]
 mod tests {
