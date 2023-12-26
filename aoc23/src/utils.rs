@@ -1,13 +1,13 @@
 use std::{rc::Rc, collections::VecDeque};
 
-enum SlopeType {
+pub enum SlopeType {
     North,
     West,
     South,
     East
 }
 
-enum TileType {
+pub enum TileType {
     Path,
     Forest,
     Slope(SlopeType)
@@ -15,6 +15,7 @@ enum TileType {
 
 type Pos = (usize, usize);
 
+#[derive(Clone)]
 struct TestTile {
     pos: Pos,
     cost: u64,
@@ -22,13 +23,13 @@ struct TestTile {
     previously_visited_pos: Vec<Rc<Vec<Pos>>>
 }
 
-struct Tile {
-    tile_type: TileType,
+pub struct Tile {
+    pub tile_type: TileType,
     //highest_cost: u64
 }
 
 pub struct TrailMap {
-    map: Vec<Vec<Tile>>
+    pub map: Vec<Vec<Tile>>
 }
 
 impl SlopeType {
@@ -40,6 +41,15 @@ impl SlopeType {
             '>' => Some(SlopeType::East),
             _ => None
         }
+    }
+}
+
+impl TileType {
+    pub fn is_walkable(&self) -> bool {
+        return match self {
+            TileType::Forest => false,
+            _ => true
+        };
     }
 }
 
@@ -166,12 +176,18 @@ impl TrailMap {
         if possible_next_pos.len() == 1 {
             test_tile_queue.push_back(TestTile::from_other_single(test_tile, possible_next_pos.remove(0)));
         } else if possible_next_pos.len() > 1 {
-            // TODO: I guess this appends to the back of the queue?
-            test_tile_queue.append(&mut TestTile::from_other_multiple(test_tile, possible_next_pos));
+            // DFS
+            let test_tiles_new = TestTile::from_other_multiple(test_tile, possible_next_pos);
+            for test_tile_new in test_tiles_new.into_iter() {
+                test_tile_queue.push_front(test_tile_new);
+            }
+
+            // BFS
+            //test_tile_queue.append(&mut TestTile::from_other_multiple(test_tile, possible_next_pos));
         }
     }
 
-    fn move_to_tile(mut test_tile: TestTile, map: &mut Vec<Vec<Tile>>, test_tile_queue: &mut VecDeque<TestTile>, test_tile_finished: &mut Vec<TestTile>, end_pos: &Pos, ignore_slopes: bool) {
+    fn move_to_tile(mut test_tile: TestTile, map: &mut Vec<Vec<Tile>>, test_tile_queue: &mut VecDeque<TestTile>, test_tile_finished: &mut (u64, TestTile), end_pos: &Pos, ignore_slopes: bool) {
         // Add self to visited tiles
         test_tile.visited_pos.push(test_tile.pos);
 
@@ -180,7 +196,11 @@ impl TrailMap {
         
         // Check if at finish tile, if so add to test_tile_finished and return
         if test_tile.pos == *end_pos {
-            test_tile_finished.push(test_tile);
+            if test_tile.cost > test_tile_finished.0 {
+                test_tile_finished.0 = test_tile.cost;
+                test_tile_finished.1 = test_tile;
+                //println!("Found longer path with cost: {}", test_tile_finished.0 - 1);
+            }
             return;
         }
 
@@ -197,7 +217,7 @@ impl TrailMap {
         Self::add_next_steps(test_tile, map, test_tile_queue, ignore_slopes);
     }
 
-    fn determine_start_and_end_tile_pos(map: &Vec<Vec<Tile>>) -> (Pos, Pos) {
+    pub fn determine_start_and_end_tile_pos(map: &Vec<Vec<Tile>>) -> (Pos, Pos) {
         let mut start_pos = None;
         for (x, tile) in map.first().unwrap().iter().enumerate() {
             match tile.tile_type {
@@ -230,11 +250,12 @@ impl TrailMap {
         // In crossroad nodes, also store the current maximum cost to there so that "cheaper" branches can stop testing
 
         let mut test_tile_queue = VecDeque::new();
-        let mut test_tile_finished = Vec::new();
 
         // Determine start and end tile pos
         let (start_pos, end_pos) = Self::determine_start_and_end_tile_pos(&self.map);
         let start_test_tile = TestTile::new(start_pos);
+
+        let mut test_tile_finished = (0, start_test_tile.clone());
 
         // Add start test tile to queue
         test_tile_queue.push_back(start_test_tile);
@@ -244,7 +265,7 @@ impl TrailMap {
             Self::move_to_tile(test_tile, &mut self.map, &mut test_tile_queue, &mut test_tile_finished, &end_pos, ignore_slopes);
         }
 
-        let max_cost = test_tile_finished.iter().map(|test_tile| test_tile.cost).max().unwrap();
+        let max_cost = test_tile_finished.0;
         return max_cost - 1; // -1 to remove start tile step
     }
 
