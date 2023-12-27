@@ -14,7 +14,6 @@ struct Tile {
 struct DigInstruction {
     direction: Direction,
     meters: u64
-    // TODO: color
 }
 
 pub struct DigPlan {
@@ -34,13 +33,38 @@ impl Direction {
 }
 
 impl DigInstruction {
-    fn parse(line: &str) -> DigInstruction {
+    fn parse_swapped(line: &str) -> DigInstruction {
+        let split_line = line.split(" ");
+        let right_side = split_line.last().unwrap();
+
+        let meters = u64::from_str_radix(&right_side[2..7], 16).unwrap();
+        let direction_number = u64::from_str_radix(&right_side[7..8], 16).unwrap();
+        let direction = match direction_number {
+            0 => Direction::Right,
+            1 => Direction::Down,
+            2 => Direction::Left,
+            3 => Direction::Up,
+            _ => panic!("Invalid direction number")
+        };
+
+        DigInstruction { direction: direction, meters: meters }
+    }
+
+    fn parse_normal(line: &str) -> DigInstruction {
         let mut split_line = line.split(" ");
 
         let direction = Direction::new(split_line.next().unwrap().chars().next().unwrap());
         let meters = split_line.next().unwrap().parse::<u64>().unwrap();
 
         DigInstruction { direction: direction, meters: meters }
+    }
+
+    fn parse(line: &str, swapped: bool) -> DigInstruction {
+        if !swapped {
+            Self::parse_normal(line)
+        } else {
+            Self::parse_swapped(line)
+        }
     }
 }
 
@@ -215,7 +239,7 @@ impl DigPlan {
         return Self::convert_trench_to_usize(trench);
     }
 
-    fn shoelace_formula(trench: &Vec<(usize, usize)>) -> u64 {
+    fn shoelace_formula(trench: &Vec<(usize, usize)>) -> f64 {
         let mut sum: i64 = 0;
 
         for i in 0..trench.len() {
@@ -236,7 +260,22 @@ impl DigPlan {
             sum += current.0 as i64 * (next.1 as i64 - prev.1 as i64)
         }
 
-        return (sum / 2).abs() as u64;
+        return (sum as f64 / 2f64).abs();
+    }
+
+    fn compensate_area(instructions: &Vec<DigInstruction>) -> f64 {
+        // Assume dig directions are never the same in a row
+        let corners = instructions.len();
+        let sides: u64 = instructions.iter().map(|instruction| instruction.meters - 1).sum();
+
+        if corners % 2 != 0 {
+            panic!("Uneven amount of corners: {}", corners);
+        }
+
+        println!("Corners: {}, sides: {}", corners, sides);
+
+        // (b/2 + 1)
+        return (corners as f64 + sides as f64) / 2.0 + 1.0;
     }
 
     fn dig_out_trench_part_2(instructions: &Vec<DigInstruction>) -> Vec<(usize, usize)> {
@@ -246,29 +285,36 @@ impl DigPlan {
         // Push initial coordinates
         trench.push(coordinates);
 
-        // TODO: Need to find the "outside" coordinates...!
-
         for instruction in instructions.iter() {
-            for _ in 0..(instruction.meters + 1) { // + 1 to compensate for coordinate system?
-                match instruction.direction {
-                    Direction::Up => coordinates.0 -= 1,
-                    Direction::Left => coordinates.1 -= 1,
-                    Direction::Down => coordinates.0 += 1,
-                    Direction::Right => coordinates.1 += 1
-                }
-                trench.push(coordinates);
+            match instruction.direction {
+                Direction::Up => coordinates.0 -= instruction.meters as isize,
+                Direction::Left => coordinates.1 -= instruction.meters as isize,
+                Direction::Down => coordinates.0 += instruction.meters as isize,
+                Direction::Right => coordinates.1 += instruction.meters as isize
             }
+            trench.push(coordinates);
         }
 
+        // Remove extra start/end point
+        trench.remove(trench.len() - 1);
+
+        // Note: not needed
         return Self::convert_trench_to_usize(trench);
     }
 
-    pub fn test_part_2(&self) {
-        let mut trench = Self::dig_out_trench_part_2(&self.instructions);
-        //trench.remove(trench.len() - 1); // TODO: restore?
-        let area = Self::shoelace_formula(&trench);
+    pub fn get_lava_capacity_optimized(&self) -> u64 {
+        // Pick's theorem -> A = i + b/2 - 1 // The area inside the boundries
+        // i = A - b/2 + 1
+        // i + b = A + b/2 + 1 // The real area we are looking for
+        let trench = Self::dig_out_trench_part_2(&self.instructions);
+        let mut area = Self::shoelace_formula(&trench);
 
-        println!("Area is: {}", area);
+        // Compensate area (+ b/2 + 1)
+        area += Self::compensate_area(&self.instructions);
+
+        println!("Area: {}", area);
+
+        return area as u64;
     }
 
     pub fn get_lava_capacity(&self) -> u64 {
@@ -280,9 +326,9 @@ impl DigPlan {
         return Self::determine_capcity(&mut map);
     }
 
-    pub fn parse(file: &str) -> DigPlan {
+    pub fn parse(file: &str, swapped: bool) -> DigPlan {
         let lines = aoc_helper::read_lines(file);
-        let instructions = lines.iter().map(|line| DigInstruction::parse(line)).collect();
+        let instructions = lines.iter().map(|line| DigInstruction::parse(line, swapped)).collect();
 
         return DigPlan { instructions: instructions };
     }
