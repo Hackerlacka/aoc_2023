@@ -1,5 +1,23 @@
 use std::collections::{HashMap, VecDeque};
 
+// FlipFlop
+// on/off
+// high pulse -> nothing
+// low pulse -> off -> on -> high pulse
+// low pulse -> on -> off -> low pulse
+
+// Conjunction
+// Remembers pulse type for each sender connected to it (initially low)
+// Pulse -> Update memory -> if all(memory) == high -> low pulse, otherwise -> high pulse
+
+// Broadcast (single)
+// Pulse in -> Pulse out (same)
+
+// Button (single)
+// Press -> low pulse to broadcaster
+
+// Pulses are processed in the order they are sent
+
 enum Pulse {
     Low,
     High
@@ -135,6 +153,8 @@ impl ElectronicMap {
         let mut low_pulses = 0;
         let mut high_pulses = 0;
 
+        // TODO: Should find out when the state is reset back to start state for faster performance?
+
         for _ in 0..button_presses {
             let res = self.press_button();
             low_pulses += res.0;
@@ -150,7 +170,7 @@ impl ElectronicMap {
         let mut modules = HashMap::new();
         for line in lines.iter() {
             let module = ElectronicModule::parse(line, &lines);
-            modules.insert(line.to_string(), module);
+            modules.insert(module.name.clone(), module);
         }
 
         ElectronicMap { modules: modules }
